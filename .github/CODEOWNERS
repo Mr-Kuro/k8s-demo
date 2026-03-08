@@ -1,0 +1,9 @@
+# CODEOWNERS file
+
+## Default owner for all files
+
+- @Mr-Kuro
+
+## GitHub-related files and workflows
+
+/.github/ @Mr-Kuro
