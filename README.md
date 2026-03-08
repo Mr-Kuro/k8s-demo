@@ -114,3 +114,32 @@ This architecture allows us to manage our MongoDB database and Mongo Express app
 │ Deployment   │
 └──────────────┘
 ```
+
+## Stack used to study Kubernetes
+
+- **Minikube**: A tool that allows you to run a single-node Kubernetes cluster on your local machine. It is used for development and testing purposes.
+- **kubectl**: The command-line tool for interacting with Kubernetes clusters. It is used to deploy applications, manage cluster resources, and view logs and events.
+- **Docker**: A platform for developing, shipping, and running applications in containers. It is used to create and manage container images for our application.
+
+### useful sh commands
+
+#### useful sh commands for listing resources
+
+- `kubectl get pods`: Lists all the Pods in the current namespace.
+- `kubectl get services`: Lists all the Services in the current namespace.
+- `kubectl get deployments`: Lists all the Deployments in the current namespace.
+- `kubectl get configmaps`: Lists all the ConfigMaps in the current namespace.
+- `kubectl get secrets`: Lists all the Secrets in the current namespace.
+
+##### useful sh commands for debugging and monitoring
+
+- `kubectl describe pod <pod-name>`: Provides detailed information about a specific Pod, including its status, events, and resource usage.
+- `kubectl logs <pod-name>`: Retrieves the logs from a specific Pod, which can be useful for debugging and monitoring the application running in the Pod.
+- `kubectl exec -it <pod-name> -- /bin/bash`: Opens an interactive terminal session inside a specific Pod, allowing you to run commands and inspect the environment of the container running in the Pod.
+- `kubectl top pod <pod-name>`: Displays the resource usage (CPU and memory) of a specific Pod, which can help you monitor the performance of your application and identify potential issues.
+
+#### useful sh commands for managing resources
+
+- `kubectl apply -f <file.yaml>`: Applies the configuration defined in a YAML file to create or update Kubernetes resources.
+- `kubectl delete -f <file.yaml>`: Deletes the Kubernetes resources defined in a YAML file.
+- `kubectl edit deployment <deployment-name>`: Opens the Deployment configuration in a text editor, allowing you to make changes to the Deployment's configuration and save it to apply the changes.
