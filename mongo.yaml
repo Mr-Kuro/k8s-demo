@@ -1,33 +1,44 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mongo-deployment
+  name: mongodb-deployment
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mongo
+      app: mongodb
   template:
     metadata:
       labels:
-        app: mongo
+        app: mongodb
     spec:
       containers:
-      - name: mongo
+      - name: mongodb
         image: mongo:latest
         ports:
         - containerPort: 27017
         env:
+          # the value of the environment variable is obtained from the secret.
+          # the secret is referenced by its name and the key that contains the value.
         - name: MONGO_INITDB_ROOT_USERNAME
           valueFrom:
             secretKeyRef:
               name: mongodb-secret
               key: mongodb-root-username
         - name: MONGO_INITDB_ROOT_PASSWORD
-          # the value of the environment variable is obtained from the secret.
-          # the secret is referenced by its name and the key that contains the value.
-          # this is the recommended way to use secrets in Kubernetes, as it allows you to keep sensitive information out of your deployment manifests and manage it separately.
           valueFrom:
             secretKeyRef:
               name: mongodb-secret
               key: mongodb-root-password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-service
+spec:
+  selector:
+    app: mongodb
+  ports:
+  - protocol: TCP
+    port: 27017
+    targetPort: 27017
