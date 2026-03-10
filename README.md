@@ -23,6 +23,11 @@ K8s-demo is a project to study Kubernetes. It provides a simple application that
 - **Persistent Volume Claims (PVCs)**: A request for storage by a user. PVCs are used to claim storage from PVs and can specify the desired size and access modes for the storage.
 - **Namespaces**: A way to divide cluster resources between multiple users or teams. Namespaces provide a scope for names and can be used to organize and manage resources in a Kubernetes cluster.
 - **StatefulSets**: A Kubernetes controller that manages the deployment and scaling of a set of Pods, and provides guarantees about the ordering and uniqueness of these Pods. StatefulSets are used for applications that require stable, unique network identifiers and persistent storage, such as databases.
+- **namespace**: A way to divide cluster resources between multiple users or teams. Namespaces provide a scope for names and can be used to organize and manage resources in a Kubernetes cluster.
+
+> To learn more about Kubernetes components, you can refer to the official Kubernetes documentation: https://kubernetes.io/docs/concepts/overview/components/
+>
+>  About Ingress, you can refer to the official Kubernetes documentation: https://kubernetes.io/docs/concepts/services-networking/ingress/
 
 ## Our K8s Components Overview
 
@@ -137,9 +142,23 @@ This architecture allows us to manage our MongoDB database and Mongo Express app
 - `kubectl logs <pod-name>`: Retrieves the logs from a specific Pod, which can be useful for debugging and monitoring the application running in the Pod.
 - `kubectl exec -it <pod-name> -- /bin/bash`: Opens an interactive terminal session inside a specific Pod, allowing you to run commands and inspect the environment of the container running in the Pod.
 - `kubectl top pod <pod-name>`: Displays the resource usage (CPU and memory) of a specific Pod, which can help you monitor the performance of your application and identify potential issues.
+- `kubectl api-resources`: Lists all the available API resources in the Kubernetes cluster, which can help you understand the different types of resources you can manage and interact with in your cluster.
+- `kubectl api-resource --namespaced=<true|false>`: Lists the API resources that are either namespaced or cluster-scoped, allowing you to filter the resources based on their scope.
+
+> to get namespaced info, for exaple, from a pod, you can use `kubectl get pod <pod-name> -n <namespace-name> -o yaml` to get the detailed information about the pod in a specific namespace.
 
 #### useful sh commands for managing resources
 
 - `kubectl apply -f <file.yaml>`: Applies the configuration defined in a YAML file to create or update Kubernetes resources.
 - `kubectl delete -f <file.yaml>`: Deletes the Kubernetes resources defined in a YAML file.
 - `kubectl edit deployment <deployment-name>`: Opens the Deployment configuration in a text editor, allowing you to make changes to the Deployment's configuration and save it to apply the changes.
+
+#### minikube specific commands
+
+- `minikube start`: Starts a local Kubernetes cluster using Minikube.
+- `minikube stop`: Stops the Minikube cluster.
+- `minikube delete`: Deletes the Minikube cluster and all its resources.
+- `minikube dashboard`: Opens the Kubernetes Dashboard in a web browser, providing a graphical interface to manage and monitor the Kubernetes cluster.
+- `minikube ip`: Displays the IP address of the Minikube cluster, which can be used to access services running in the cluster from your local machine.
+- `minikube service <service-name>`: Opens the specified service in a web browser, allowing you to access the application running in the service from your local machine.
+- `minikube addons enable ingress`: Enables the Ingress addon in Minikube, allowing you to use Ingress resources to manage external access to services in the cluster.
