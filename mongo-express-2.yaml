@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-express-2-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo-express-2
+  template:
+    metadata:
+      labels:
+        app: mongo-express-2
+    spec:
+      containers:
+      - name: mongo-express-2
+        image: mongo-express
+        ports:
+        - containerPort: 8081
+        env:
+        - name: ME_CONFIG_MONGODB_ADMINUSERNAME
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-secret
+              key: mongodb-root-username
+        - name: ME_CONFIG_MONGODB_ADMINPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-secret
+              key: mongodb-root-password
+        - name: ME_CONFIG_MONGODB_SERVER
+          valueFrom:
+            configMapKeyRef:
+              name: mongodb-config
+              key: database_url
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-express-2-service
+spec:
+  selector:
+    app: mongo-express-2
+  ports:
+  - protocol: TCP
+    port: 8081
+    targetPort: 8081
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mongo-express-2-ingress
+spec:
+  rules:
+    - host: mongo-express-2.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mongo-express-2-service
+                port:
+                  number: 8081
