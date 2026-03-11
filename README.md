@@ -25,6 +25,9 @@ K8s-demo is a project to study Kubernetes. It provides a simple application that
 - **StatefulSets**: A Kubernetes controller that manages the deployment and scaling of a set of Pods, and provides guarantees about the ordering and uniqueness of these Pods. StatefulSets are used for applications that require stable, unique network identifiers and persistent storage, such as databases.
 - **namespace**: A way to divide cluster resources between multiple users or teams. Namespaces provide a scope for names and can be used to organize and manage resources in a Kubernetes cluster.
 
+### Persistent Volumes and Persistent Volume Claims
+<!-- continua... -->
+
 > To learn more about Kubernetes components, you can refer to the official Kubernetes documentation: https://kubernetes.io/docs/concepts/overview/components/
 >
 >  About Ingress, you can refer to the official Kubernetes documentation: https://kubernetes.io/docs/concepts/services-networking/ingress/
@@ -162,3 +165,50 @@ This architecture allows us to manage our MongoDB database and Mongo Express app
 - `minikube ip`: Displays the IP address of the Minikube cluster, which can be used to access services running in the cluster from your local machine.
 - `minikube service <service-name>`: Opens the specified service in a web browser, allowing you to access the application running in the service from your local machine.
 - `minikube addons enable ingress`: Enables the Ingress addon in Minikube, allowing you to use Ingress resources to manage external access to services in the cluster.
+
+## More additional knowledge
+
+- **Kubernetes Dashboard**: A web-based user interface for managing and monitoring Kubernetes clusters. It provides a visual representation of the cluster's resources and allows users to perform various operations such as deploying applications, managing resources, and viewing logs and events.
+- **Kubernetes API**: The Kubernetes API is the primary interface for interacting with the Kubernetes cluster. It provides a RESTful API that allows users and applications to create, read, update, and delete Kubernetes resources. The API is used by tools like `kubectl` and the Kubernetes Dashboard to manage the cluster and its resources.
+- **Kubernetes Operators**: A Kubernetes Operator is a method of packaging, deploying, and managing a Kubernetes application. Operators extend the Kubernetes API to create, configure, and manage instances of complex applications on behalf of a Kubernetes user. They are used to automate the management of applications and services in Kubernetes, making it easier to deploy and maintain complex applications in a Kubernetes cluster.
+
+### Helm
+
+> Official Helm documentation: https://helm.sh/docs/
+
+- **Helm**: Helm is a package manager for Kubernetes that allows you to define, install, and manage Kubernetes applications using Helm charts. A Helm chart is a collection of files that describe a related set of Kubernetes resources. Helm simplifies the deployment and management of applications in Kubernetes by providing a templating mechanism and a way to manage application dependencies. With Helm, you can easily deploy complex applications with a single command and manage their lifecycle using Helm's built-in features for upgrading, rolling back, and uninstalling applications.
+
+#### Helm configuration files
+
+- `Chart.yaml`: This file contains metadata about the Helm chart, such as its name, version, and description. It is used to define the chart and its dependencies.
+- `values.yaml`: This file contains the default configuration values for the Helm chart. It allows users to customize the deployment of the application by providing their own values for the configuration parameters defined in the chart.
+- `templates/`: This directory contains the Kubernetes resource templates that define the resources to be created when the Helm chart is deployed. These templates can use the values defined in `values.yaml` to customize the resources based on user input.
+- `charts/`: This directory can contain other Helm charts that are dependencies of the main chart. It allows you to manage and deploy multiple related applications together as a single unit.
+- `LICENSE`: This file contains the license information for the Helm chart, specifying the terms under which the chart can be used and distributed.
+- `README.md`: This file provides documentation for the Helm chart, including instructions on how to install and use the chart, as well as any additional information about the application being deployed. It is important to include a README file to help users understand the purpose of the chart and how to use it effectively.
+
+#### Helm commands
+
+- `helm install <release-name> <chart-path>`: Installs a Helm chart with the specified release name and chart path.
+- `helm upgrade <release-name> <chart-path>`: Upgrades an existing Helm release with a new chart version or configuration.
+- `helm uninstall <release-name>`: Uninstalls a Helm release, removing all associated resources from the Kubernetes cluster.
+- `helm list`: Lists all the Helm releases currently deployed in the Kubernetes cluster.
+- `helm status <release-name>`: Displays the status of a specific Helm release, including information about the deployed resources and their current state.
+- `helm repo add <repo-name> <repo-url>`: Adds a Helm chart repository to the local Helm configuration, allowing you to access and install charts from that repository.
+- `helm repo update`: Updates the local Helm chart repository cache, ensuring that you have the latest information about available charts and their versions.
+- `helm search repo <chart-name>`: Searches for a specific Helm chart in the configured Helm repositories, allowing you to find and install charts that match your requirements.
+- `helm template <chart-path>`: Generates the Kubernetes resource manifests from a Helm chart without actually installing it, allowing you to review the generated resources before deployment.
+
+#### Helm best practices
+
+- Use meaningful release names: Choose descriptive and meaningful release names for your Helm deployments to make it easier to identify and manage them in the Kubernetes cluster.
+- Keep values.yaml organized: Organize the configuration values in `values.yaml` in a clear and structured manner, grouping related values together and providing comments to explain their purpose and usage.
+- Use version control: Store your Helm charts in a version control system (e.g., Git) to track changes, collaborate with others, and maintain a history of your chart development.
+- Test your charts: Use tools like `helm lint` and `helm test` to validate your Helm charts and ensure that they are correctly defined and function as expected before deploying them to a production environment.
+- Document your charts: Provide clear and comprehensive documentation in the `README.md` file of your Helm chart, including installation instructions, configuration options, and any additional information that users may need to effectively use the chart. This will help users understand how to deploy and manage the application using your Helm chart.
+
+#### Helm versions
+
+- Helm 2: The original version of Helm, which uses Tiller as the server-side component to manage releases and resources in the Kubernetes cluster. Helm 2 is no longer actively maintained and has been deprecated in favor of Helm 3.
+- Helm 3: The current version of Helm, which removes the need for Tiller and operates entirely client-side. Helm 3 provides improved security, better support for Kubernetes features, and a more streamlined user experience compared to Helm 2. It is the recommended version for new Helm deployments and is actively maintained with regular updates and improvements.
+
