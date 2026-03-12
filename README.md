@@ -1,348 +1,246 @@
-# k8s-demo
+# Kubernetes Demo: MongoDB + Mongo Express
 
-This is a project to study Kubernetes.
+This repository is a practical Kubernetes lab for deploying MongoDB and Mongo Express and validating service exposure patterns.
 
-The topics below will describe the architecture decisions of the project. It should be updated whenever a new decision is made or an existing decision is changed.
+The documentation below is aligned with Kubernetes official concepts for Deployments, Services, ConfigMaps, Secrets, and Ingress.
 
-## Context
+## What This Project Demonstrates
 
-We decided to use Kubernetes for container orchestration because it is a widely adopted solution that provides features such as automatic scaling, self-healing, and easy management of containerized applications.
-We want to study Kubernetes and learn how to use it for container orchestration.
+- Internal stateful-style workload access using a Service (`mongodb-service`).
+- External web access patterns for the same app family:
+  - Service `type: LoadBalancer` (with a fixed `nodePort`) in `mongo-express.yaml`.
+  - Ingress routing in `mongo-express-2.yaml`.
+- Config separation using ConfigMap (`mongodb-config`).
+- Sensitive value injection using Secret (`mongodb-secret`).
 
-K8s-demo is a project to study Kubernetes. It provides a simple application that can be deployed on Kubernetes clusters.
+## Architecture
 
-## Some K8s Components
+Two access paths are intentionally provided so you can study different exposure models.
 
-> To learn more about Kubernetes components, you can refer to the official Kubernetes documentation: https://kubernetes.io/docs/concepts/overview/components/
->
->  About Ingress, you can refer to the official Kubernetes documentation: https://kubernetes.io/docs/concepts/services-networking/ingress/
+```text
+Path A (LoadBalancer / NodePort)
+Browser --> mongo-express-service (LoadBalancer, nodePort 30000)
+        --> mongo-express Pod --> mongodb-service:27017 --> mongodb Pod
 
-- **Pods**: The smallest deployable units in Kubernetes, which can contain one or more containers. They are used to run applications and services.
-- **Services**: An abstraction that defines a logical set of Pods and a policy by which to access them. Services enable communication between different components of an application and provide load balancing.
-- **Deployments**: A higher-level abstraction that manages the lifecycle of Pods. Deployments ensure that a specified number of Pods are running at any given time and can perform rolling updates to update the application without downtime.
-- **ConfigMaps**: A Kubernetes object that allows you to store configuration data as key-value pairs. ConfigMaps can be used to decouple configuration from application code, making it easier to manage and update configuration without redeploying the application.
-- **Secrets**: Similar to ConfigMaps, but designed to store sensitive information such as passwords, API keys, and certificates. Secrets are encoded and can be used to securely manage sensitive data in Kubernetes applications.
-- **Ingress**: An API object that manages external access to services in a Kubernetes cluster, typically HTTP. Ingress can provide load balancing, SSL termination, and name-based virtual hosting to route traffic to the appropriate services based on the request's host or path.
-- **Persistent Volumes (PVs)**: A piece of storage in the cluster that has been provisioned by an administrator or dynamically provisioned using Storage Classes. PVs are used to provide persistent storage for applications running in Kubernetes.
-- **Persistent Volume Claims (PVCs)**: A request for storage by a user. PVCs are used to claim storage from PVs and can specify the desired size and access modes for the storage.
-- **Namespaces**: A way to divide cluster resources between multiple users or teams. Namespaces provide a scope for names and can be used to organize and manage resources in a Kubernetes cluster.
-- **StatefulSets**: A Kubernetes controller that manages the deployment and scaling of a set of Pods, and provides guarantees about the ordering and uniqueness of these Pods. StatefulSets are used for applications that require stable, unique network identifiers and persistent storage, such as databases.
-- **namespace**: A way to divide cluster resources between multiple users or teams. Namespaces provide a scope for names and can be used to organize and manage resources in a Kubernetes cluster.
+Path B (Ingress)
+Browser --> Ingress host mongo-express-2.com
+        --> mongo-express-2-service:8081
+        --> mongo-express-2 Pod --> mongodb-service:27017 --> mongodb Pod
 
-### Persistent Volumes and Persistent Volume Claims
-
-> To learn more about Persistent Volumes and Persistent Volume Claims, you can refer to the official Kubernetes documentation: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
-
-Persistent Volumes (PVs) and Persistent Volume Claims (PVCs) are Kubernetes resources that provide a way to manage persistent storage for applications running in a Kubernetes cluster. PVs are pieces of storage in the cluster that have been provisioned by an administrator or dynamically provisioned using Storage Classes. PVCs are requests for storage by users, which can specify the desired size and access modes for the storage. When a PVC is created, Kubernetes will attempt to find a matching PV that satisfies the request and bind them together, allowing the application to use the persistent storage.
-
-```yaml
-apiVersion: v1
-kind: StorageClass
-metadata:
-  name: standard
-provisioner: kubernetes.io/aws-ebs
-parameters:
-  type: gp2
-  fsType: ext4
-  iopsPerGB: "10"
----
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: pv-aws-ebs
-spec:
-  capacity:
-    storage: 10Gi
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: standard
-  awsElasticBlockStore:
-    volumeID: <volume-id>
-    fsType: ext4
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pvc-aws-ebs
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:            
-    requests:
-      storage: 10Gi
-  storageClassName: standard
----
-
-# exemple of a pod using the PVC
-apiVersion: v1
-kind: Pod
-metadata:
-  name: my-pod
-spec:
-  containers:
-    - name: my-container
-      image: my-image
-      volumeMounts:
-        - name: my-volume
-          mountPath: /data
-  volumes:
-    - name: my-volume
-      persistentVolumeClaim:
-        claimName: pvc-aws-ebs
-
----
-
-# exemple of a pod using the PV
-apiVersion: v1
-kind: Pod
-metadata:
-  name: my-pod
-spec:
-  containers:
-    - name: my-container
-      image: my-image
-      volumeMounts:
-        - name: my-volume
-          mountPath: /data
-  volumes:
-    - name: my-volume
-      persistentVolume:
-        claimName: pv-aws-ebs
+Shared configuration
+- Secret: mongodb-secret (admin username/password)
+- ConfigMap: mongodb-config (database_url=mongodb-service)
 ```
 
-### StatefulSets
+## Repository Structure
 
-> To learn more about StatefulSets, you can refer to the official Kubernetes documentation: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/
+| File                   | Purpose                                                 | Main Kubernetes Objects            |
+| ---------------------- | ------------------------------------------------------- | ---------------------------------- |
+| `mongo-secret.yaml`    | Stores MongoDB credentials (base64-encoded)             | `Secret`                           |
+| `mongo-configmap.yaml` | Stores MongoDB service hostname                         | `ConfigMap`                        |
+| `mongo.yaml`           | Deploys MongoDB and internal access                     | `Deployment`, `Service`            |
+| `mongo-express.yaml`   | Deploys Mongo Express exposed via LoadBalancer/NodePort | `Deployment`, `Service`            |
+| `mongo-express-2.yaml` | Deploys a second Mongo Express exposed via Ingress      | `Deployment`, `Service`, `Ingress` |
 
-StatefulSets are a Kubernetes controller that manages the deployment and scaling of a set of Pods, and provides guarantees about the ordering and uniqueness of these Pods. StatefulSets are used for applications that require stable, unique network identifiers and persistent storage, such as databases. When a StatefulSet is created, it will create a specified number of Pods with unique names and stable network identities. The Pods in a StatefulSet are created in order, and they are terminated in reverse order when scaling down. This allows applications that require stable identities and ordered deployment to function correctly in a Kubernetes cluster.
+## Prerequisites
 
-```yaml
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: my-statefulset
-spec:
-  serviceName: "my-service"
-  replicas: 3
-  selector:
-    matchLabels:
-      app: my-app
-  template:
-    metadata:
-      labels:
-        app: my-app
-    spec:
-      containers:
-        - name: my-container
-          image: my-image
-          volumeMounts:
-            - name: my-volume
-              mountPath: /data
-  volumeClaimTemplates:
-    - metadata:
-        name: my-volume-claim
-      spec:
-        accessModes: [ "ReadWriteOnce" ]
-        resources:
-          requests:
-            storage: 10Gi
+- Kubernetes cluster (Minikube recommended for local study).
+- `kubectl` configured to your cluster context.
+- `minikube` installed (for local setup examples).
+- Ingress controller enabled when using `mongo-express-2.yaml`.
+
+Example local setup:
+
+```bash
+minikube start
+kubectl cluster-info
+kubectl get nodes
 ```
 
-### Services types
+## Deployment
 
-> To learn more about Service types, you can refer to the official Kubernetes documentation: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+Apply resources in dependency order so consumers start after configuration is available.
 
-- **ClusterIP**: The default Service type, which exposes the Service on a cluster-internal IP. This means that the Service is only accessible from within the cluster.
-- **NodePort**: Exposes the Service on each Node's IP at a static port. This allows the Service to be accessed from outside the cluster using `<NodeIP>:<NodePort>`.
-- **LoadBalancer**: Exposes the Service using a cloud provider's load balancer. This allows the Service to be accessed from outside the cluster using the load balancer's IP address or DNS name.
+```bash
+kubectl apply -f mongo-secret.yaml
+kubectl apply -f mongo-configmap.yaml
+kubectl apply -f mongo.yaml
 
-Other Service types:
-
-- **ExternalName**: Maps the Service to the contents of the `externalName` field (e.g., `foo.bar.example.com`), by returning a CNAME record with its value. This allows the Service to be accessed using the specified external name.
-- **Headless Service**: A Service without a cluster IP, which allows you to directly access the Pods backing the Service. This is useful for applications that require direct access to the Pods, such as databases or stateful applications.
-
-Notes:
-
-- You can handle multiple ports in a Service by defining multiple ports in the Service specification. Each port can have a different name, protocol, and target port, allowing you to expose multiple services or applications through a single Service resource.
-- Headless Services are useful for applications that require direct access to the Pods, such as databases or stateful applications. They allow you to access the individual Pods directly, rather than through a load balancer or proxy, which can be beneficial for certain types of applications that require low latency or direct communication between Pods.
-
-## Our K8s Components Overview
-
-**Internal Service:**
-
-- Mongo DB: A NoSQL database that provides high performance, high availability, and easy scalability. It is used to store data for our application.
-
-**External Service:**
-
-- Mongo Express: A web-based MongoDB admin interface that allows us to manage our MongoDB database through a user-friendly interface. It provides features such as data visualization, query execution, and database management.
-
-**ConfigMaps:**
-
-- MongoDB URL: A ConfigMap that stores the URL for connecting to the MongoDB database. This allows us to easily update the database connection information without modifying the application code.
-
-**Secrets:**
-
-- MongoDB Credentials: A Secret that stores the username and password for connecting to the MongoDB database. This ensures that sensitive information is securely stored and can be accessed by the application when needed.
-  - Username:
-  - Password:
-
-**Deployments:**
-
-- MongoDB Deployment: A Deployment that manages the lifecycle of the MongoDB Pods. It ensures that a specified number of MongoDB Pods are running at any given time and can perform rolling updates to update the database without downtime.
-- Mongo Express Deployment: A Deployment that manages the lifecycle of the Mongo Express Pods. It ensures that a specified number of Mongo Express Pods are running at any given time and can perform rolling updates to update the application without downtime.
-
-**Graphical Representation:**
-
-```plaintext
-+------------------+          +------------------+
-|   MongoDB        |          |   Mongo Express  |
-|   Deployment     |          |   Deployment     |
-|   (Internal)     |          |   (External)     |
-+------------------+          +------------------+
-|   ConfigMap      |          |   ConfigMap      |
-|   (MongoDB URL)  |          |   (MongoDB URL)  |
-+------------------+          +------------------+
-|   Secret         |          |   Secret         |
-|   (MongoDB       |          |   (MongoDB       |
-|   Credentials)   |          |   Credentials)   |
-+------------------+          +------------------+
+# Choose one or both exposure options:
+kubectl apply -f mongo-express.yaml
+kubectl apply -f mongo-express-2.yaml
 ```
 
-This architecture allows us to manage our MongoDB database and Mongo Express application efficiently while keeping sensitive information secure. The use of Deployments ensures that our applications are highly available and can be updated without downtime, while ConfigMaps and Secrets provide a flexible way to manage configuration and sensitive data.
+Wait for rollouts:
 
-## Browser Request Flow
-
-1. A user sends a request to access the Mongo Express web interface through their browser.
-2. The request is routed to the Ingress controller, which is responsible for managing external access to the services in the Kubernetes cluster.
-3. The Ingress controller routes the request to the Mongo Express Service based on the defined routing rules.
-4. The Mongo Express Service forwards the request to one of the Mongo Express Pods managed by the Mongo Express Deployment.
-5. The Mongo Express application running in the Pod processes the request and retrieves the necessary data from the MongoDB database using the connection information stored in the ConfigMap and the credentials stored in the Secret.
-6. The Mongo Express application generates a response based on the retrieved data and sends it back to the user's browser through the Ingress controller, which then displays the Mongo Express web interface with the requested information.
-
-**Graphical Representation:**
-
-```plaintext
-
-┌──────────────┐
-│  web request │
-└──────────────┘
-        │
-        ▼
-┌──────────────┐
-│   Ingress    │
-│  Controller  │
-└──────────────┘
-        │
-        ▼
-┌──────────────┐
-│ Mongo Express│
-│   Service    │
-└──────────────┘
-        │
-        ▼
-┌──────────────┐     ┌──────────────┐
-│ Mongo Express│────▶│ ConfigMap    │
-│   Pod        │ ┐   │ (MongoDB URL)│
-└──────────────┘ ▼   └──────────────┘
-        │      ┌──────────────────────┐
-        │      │        Secret        │
-        │      │ (MongoDB Credentials)│s
-        |      |  Password: ********* │
-        │      │  Username: ********* │
-        │      └──────────────────────┘
-        ▼
-┌──────────────┐
-│ MongoDB      │
-│ Deployment   │
-└──────────────┘
+```bash
+kubectl rollout status deployment/mongodb-deployment
+kubectl rollout status deployment/mongo-express-deployment
+kubectl rollout status deployment/mongo-express-2-deployment
 ```
 
-## Stack used to study Kubernetes
+## Access Examples
 
-- **Minikube**: A tool that allows you to run a single-node Kubernetes cluster on your local machine. It is used for development and testing purposes.
-- **kubectl**: The command-line tool for interacting with Kubernetes clusters. It is used to deploy applications, manage cluster resources, and view logs and events.
-- **Docker**: A platform for developing, shipping, and running applications in containers. It is used to create and manage container images for our application.
+### Option A: LoadBalancer / NodePort (`mongo-express.yaml`)
 
-### useful sh commands
+For Minikube, use one of these approaches:
 
-#### useful sh commands for listing resources
+1. Direct service URL helper:
 
-- `kubectl get pods`: Lists all the Pods in the current namespace.
-- `kubectl get services`: Lists all the Services in the current namespace.
-- `kubectl get deployments`: Lists all the Deployments in the current namespace.
-- `kubectl get configmaps`: Lists all the ConfigMaps in the current namespace.
-- `kubectl get secrets`: Lists all the Secrets in the current namespace.
+```bash
+minikube service mongo-express-service --url
+```
 
-##### useful sh commands for debugging and monitoring
+2. Tunnel for LoadBalancer IP allocation:
 
-- `kubectl describe pod <pod-name>`: Provides detailed information about a specific Pod, including its status, events, and resource usage.
-- `kubectl logs <pod-name>`: Retrieves the logs from a specific Pod, which can be useful for debugging and monitoring the application running in the Pod.
-- `kubectl exec -it <pod-name> -- /bin/bash`: Opens an interactive terminal session inside a specific Pod, allowing you to run commands and inspect the environment of the container running in the Pod.
-- `kubectl top pod <pod-name>`: Displays the resource usage (CPU and memory) of a specific Pod, which can help you monitor the performance of your application and identify potential issues.
-- `kubectl api-resources`: Lists all the available API resources in the Kubernetes cluster, which can help you understand the different types of resources you can manage and interact with in your cluster.
-- `kubectl api-resource --namespaced=<true|false>`: Lists the API resources that are either namespaced or cluster-scoped, allowing you to filter the resources based on their scope.
+```bash
+minikube tunnel
+kubectl get svc mongo-express-service
+```
 
-> to get namespaced info, for exaple, from a pod, you can use `kubectl get pod <pod-name> -n <namespace-name> -o yaml` to get the detailed information about the pod in a specific namespace.
+Then open the returned URL in your browser.
 
-#### useful sh commands for managing resources
+### Option B: Ingress (`mongo-express-2.yaml`)
 
-- `kubectl apply -f <file.yaml>`: Applies the configuration defined in a YAML file to create or update Kubernetes resources.
-- `kubectl delete -f <file.yaml>`: Deletes the Kubernetes resources defined in a YAML file.
-- `kubectl edit deployment <deployment-name>`: Opens the Deployment configuration in a text editor, allowing you to make changes to the Deployment's configuration and save it to apply the changes.
+Enable ingress and map the host locally.
 
-#### minikube specific commands
+```bash
+minikube addons enable ingress
+kubectl apply -f mongo-express-2.yaml
+kubectl get ingress
+```
 
-- `minikube start`: Starts a local Kubernetes cluster using Minikube.
-- `minikube stop`: Stops the Minikube cluster.
-- `minikube delete`: Deletes the Minikube cluster and all its resources.
-- `minikube dashboard`: Opens the Kubernetes Dashboard in a web browser, providing a graphical interface to manage and monitor the Kubernetes cluster.
-- `minikube ip`: Displays the IP address of the Minikube cluster, which can be used to access services running in the cluster from your local machine.
-- `minikube service <service-name>`: Opens the specified service in a web browser, allowing you to access the application running in the service from your local machine.
-- `minikube addons enable ingress`: Enables the Ingress addon in Minikube, allowing you to use Ingress resources to manage external access to services in the cluster.
+Get the Minikube IP:
 
-## More additional knowledge
+```bash
+minikube ip
+```
 
-- **Kubernetes Dashboard**: A web-based user interface for managing and monitoring Kubernetes clusters. It provides a visual representation of the cluster's resources and allows users to perform various operations such as deploying applications, managing resources, and viewing logs and events.
-- **Kubernetes API**: The Kubernetes API is the primary interface for interacting with the Kubernetes cluster. It provides a RESTful API that allows users and applications to create, read, update, and delete Kubernetes resources. The API is used by tools like `kubectl` and the Kubernetes Dashboard to manage the cluster and its resources.
-- **Kubernetes Operators**: A Kubernetes Operator is a method of packaging, deploying, and managing a Kubernetes application. Operators extend the Kubernetes API to create, configure, and manage instances of complex applications on behalf of a Kubernetes user. They are used to automate the management of applications and services in Kubernetes, making it easier to deploy and maintain complex applications in a Kubernetes cluster.
+Add host mapping (example):
 
-### Helm
+```text
+<MINIKUBE_IP> mongo-express-2.com
+```
 
-> Official Helm documentation: https://helm.sh/docs/
+Then open:
 
-- **Helm**: Helm is a package manager for Kubernetes that allows you to define, install, and manage Kubernetes applications using Helm charts. A Helm chart is a collection of files that describe a related set of Kubernetes resources. Helm simplifies the deployment and management of applications in Kubernetes by providing a templating mechanism and a way to manage application dependencies. With Helm, you can easily deploy complex applications with a single command and manage their lifecycle using Helm's built-in features for upgrading, rolling back, and uninstalling applications.
+```text
+http://mongo-express-2.com
+```
 
-#### Helm configuration files
+## Verification and Day-2 Operations
 
-- `Chart.yaml`: This file contains metadata about the Helm chart, such as its name, version, and description. It is used to define the chart and its dependencies.
-- `values.yaml`: This file contains the default configuration values for the Helm chart. It allows users to customize the deployment of the application by providing their own values for the configuration parameters defined in the chart.
-- `templates/`: This directory contains the Kubernetes resource templates that define the resources to be created when the Helm chart is deployed. These templates can use the values defined in `values.yaml` to customize the resources based on user input.
-- `charts/`: This directory can contain other Helm charts that are dependencies of the main chart. It allows you to manage and deploy multiple related applications together as a single unit.
-- `LICENSE`: This file contains the license information for the Helm chart, specifying the terms under which the chart can be used and distributed.
-- `README.md`: This file provides documentation for the Helm chart, including instructions on how to install and use the chart, as well as any additional information about the application being deployed. It is important to include a README file to help users understand the purpose of the chart and how to use it effectively.
+Cluster inventory:
 
-#### Helm commands
+```bash
+kubectl get all
+kubectl get configmap mongodb-config
+kubectl get secret mongodb-secret
+kubectl get ingress
+```
 
-- `helm install <release-name> <chart-path>`: Installs a Helm chart with the specified release name and chart path.
-- `helm upgrade <release-name> <chart-path>`: Upgrades an existing Helm release with a new chart version or configuration.
-- `helm uninstall <release-name>`: Uninstalls a Helm release, removing all associated resources from the Kubernetes cluster.
-- `helm list`: Lists all the Helm releases currently deployed in the Kubernetes cluster.
-- `helm status <release-name>`: Displays the status of a specific Helm release, including information about the deployed resources and their current state.
-- `helm repo add <repo-name> <repo-url>`: Adds a Helm chart repository to the local Helm configuration, allowing you to access and install charts from that repository.
-- `helm repo update`: Updates the local Helm chart repository cache, ensuring that you have the latest information about available charts and their versions.
-- `helm search repo <chart-name>`: Searches for a specific Helm chart in the configured Helm repositories, allowing you to find and install charts that match your requirements.
-- `helm template <chart-path>`: Generates the Kubernetes resource manifests from a Helm chart without actually installing it, allowing you to review the generated resources before deployment.
+Inspect runtime behavior:
 
-#### Helm best practices
+```bash
+kubectl describe deployment mongodb-deployment
+kubectl describe deployment mongo-express-deployment
+kubectl logs deployment/mongodb-deployment
+kubectl logs deployment/mongo-express-deployment
+```
 
-- Use meaningful release names: Choose descriptive and meaningful release names for your Helm deployments to make it easier to identify and manage them in the Kubernetes cluster.
-- Keep values.yaml organized: Organize the configuration values in `values.yaml` in a clear and structured manner, grouping related values together and providing comments to explain their purpose and usage.
-- Use version control: Store your Helm charts in a version control system (e.g., Git) to track changes, collaborate with others, and maintain a history of your chart development.
-- Test your charts: Use tools like `helm lint` and `helm test` to validate your Helm charts and ensure that they are correctly defined and function as expected before deploying them to a production environment.
-- Document your charts: Provide clear and comprehensive documentation in the `README.md` file of your Helm chart, including installation instructions, configuration options, and any additional information that users may need to effectively use the chart. This will help users understand how to deploy and manage the application using your Helm chart.
+Validate service endpoints:
 
-#### Helm versions
+```bash
+kubectl get svc mongodb-service mongo-express-service mongo-express-2-service
+kubectl get endpoints mongodb-service mongo-express-service mongo-express-2-service
+```
 
-- Helm 2: The original version of Helm, which uses Tiller as the server-side component to manage releases and resources in the Kubernetes cluster. Helm 2 is no longer actively maintained and has been deprecated in favor of Helm 3.
-- Helm 3: The current version of Helm, which removes the need for Tiller and operates entirely client-side. Helm 3 provides improved security, better support for Kubernetes features, and a more streamlined user experience compared to Helm 2. It is the recommended version for new Helm deployments and is actively maintained with regular updates and improvements.
+Check Secret values safely (for troubleshooting only):
 
+```bash
+kubectl get secret mongodb-secret -o jsonpath='{.data.mongodb-root-username}' | base64 --decode; echo
+kubectl get secret mongodb-secret -o jsonpath='{.data.mongodb-root-password}' | base64 --decode; echo
+```
+
+## Troubleshooting Runbook
+
+### 1) Mongo Express cannot connect to MongoDB
+
+- Verify MongoDB Pod is running:
+
+```bash
+kubectl get pods -l app=mongodb
+kubectl logs deployment/mongodb-deployment
+```
+
+- Verify service discovery name in ConfigMap:
+
+```bash
+kubectl get configmap mongodb-config -o yaml
+```
+
+- Verify Secret key names match deployment env references:
+  - `mongodb-root-username`
+  - `mongodb-root-password`
+
+### 2) UI is not reachable from browser
+
+- For LoadBalancer path, run `minikube service ... --url` or `minikube tunnel`.
+- For Ingress path, ensure ingress addon is enabled and `/etc/hosts` contains `mongo-express-2.com`.
+
+### 3) Pod restart loops
+
+```bash
+kubectl describe pod <pod-name>
+kubectl logs <pod-name> --previous
+kubectl get events --sort-by=.metadata.creationTimestamp
+```
+
+## Security and Production Notes
+
+This repository is intentionally simple for study purposes. For production-grade deployments:
+
+- Do not commit real credentials in Git.
+- Remember: Kubernetes Secrets are base64-encoded by default, not encrypted by themselves.
+- Use encrypted secret management (for example, External Secrets + cloud secret manager, or Sealed Secrets).
+- Pin image tags (`mongo:<version>`, `mongo-express:<version>`) instead of floating tags.
+- Add CPU/memory requests and limits.
+- Add readiness and liveness probes.
+- Use TLS for ingress traffic.
+- Apply NetworkPolicies to restrict east-west traffic.
+- Prefer StatefulSet + PersistentVolumeClaim for MongoDB durability in real environments.
+
+Example hardening direction for MongoDB persistence:
+
+```text
+Current: Deployment (ephemeral container filesystem)
+Recommended for production: StatefulSet + PVC + StorageClass
+```
+
+## Cleanup
+
+```bash
+kubectl delete -f mongo-express-2.yaml
+kubectl delete -f mongo-express.yaml
+kubectl delete -f mongo.yaml
+kubectl delete -f mongo-configmap.yaml
+kubectl delete -f mongo-secret.yaml
+```
+
+If running locally:
+
+```bash
+minikube stop
+```
+
+## Official References
+
+- Kubernetes Components Overview: https://kubernetes.io/docs/concepts/overview/components/
+- Deployments: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+- Services: https://kubernetes.io/docs/concepts/services-networking/service/
+- Ingress: https://kubernetes.io/docs/concepts/services-networking/ingress/
+- ConfigMaps: https://kubernetes.io/docs/concepts/configuration/configmap/
+- Secrets: https://kubernetes.io/docs/concepts/configuration/secret/
+- StatefulSets: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/
+- Persistent Volumes: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
+- Minikube Handbook: https://minikube.sigs.k8s.io/docs/
