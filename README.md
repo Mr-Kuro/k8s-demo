@@ -13,6 +13,10 @@ K8s-demo is a project to study Kubernetes. It provides a simple application that
 
 ## Some K8s Components
 
+> To learn more about Kubernetes components, you can refer to the official Kubernetes documentation: https://kubernetes.io/docs/concepts/overview/components/
+>
+>  About Ingress, you can refer to the official Kubernetes documentation: https://kubernetes.io/docs/concepts/services-networking/ingress/
+
 - **Pods**: The smallest deployable units in Kubernetes, which can contain one or more containers. They are used to run applications and services.
 - **Services**: An abstraction that defines a logical set of Pods and a policy by which to access them. Services enable communication between different components of an application and provide load balancing.
 - **Deployments**: A higher-level abstraction that manages the lifecycle of Pods. Deployments ensure that a specified number of Pods are running at any given time and can perform rolling updates to update the application without downtime.
@@ -26,11 +30,141 @@ K8s-demo is a project to study Kubernetes. It provides a simple application that
 - **namespace**: A way to divide cluster resources between multiple users or teams. Namespaces provide a scope for names and can be used to organize and manage resources in a Kubernetes cluster.
 
 ### Persistent Volumes and Persistent Volume Claims
-<!-- continua... -->
 
-> To learn more about Kubernetes components, you can refer to the official Kubernetes documentation: https://kubernetes.io/docs/concepts/overview/components/
->
->  About Ingress, you can refer to the official Kubernetes documentation: https://kubernetes.io/docs/concepts/services-networking/ingress/
+> To learn more about Persistent Volumes and Persistent Volume Claims, you can refer to the official Kubernetes documentation: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
+
+Persistent Volumes (PVs) and Persistent Volume Claims (PVCs) are Kubernetes resources that provide a way to manage persistent storage for applications running in a Kubernetes cluster. PVs are pieces of storage in the cluster that have been provisioned by an administrator or dynamically provisioned using Storage Classes. PVCs are requests for storage by users, which can specify the desired size and access modes for the storage. When a PVC is created, Kubernetes will attempt to find a matching PV that satisfies the request and bind them together, allowing the application to use the persistent storage.
+
+```yaml
+apiVersion: v1
+kind: StorageClass
+metadata:
+  name: standard
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp2
+  fsType: ext4
+  iopsPerGB: "10"
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-aws-ebs
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  awsElasticBlockStore:
+    volumeID: <volume-id>
+    fsType: ext4
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-aws-ebs
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:            
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+---
+
+# exemple of a pod using the PVC
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  containers:
+    - name: my-container
+      image: my-image
+      volumeMounts:
+        - name: my-volume
+          mountPath: /data
+  volumes:
+    - name: my-volume
+      persistentVolumeClaim:
+        claimName: pvc-aws-ebs
+
+---
+
+# exemple of a pod using the PV
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  containers:
+    - name: my-container
+      image: my-image
+      volumeMounts:
+        - name: my-volume
+          mountPath: /data
+  volumes:
+    - name: my-volume
+      persistentVolume:
+        claimName: pv-aws-ebs
+```
+
+### StatefulSets
+
+> To learn more about StatefulSets, you can refer to the official Kubernetes documentation: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/
+
+StatefulSets are a Kubernetes controller that manages the deployment and scaling of a set of Pods, and provides guarantees about the ordering and uniqueness of these Pods. StatefulSets are used for applications that require stable, unique network identifiers and persistent storage, such as databases. When a StatefulSet is created, it will create a specified number of Pods with unique names and stable network identities. The Pods in a StatefulSet are created in order, and they are terminated in reverse order when scaling down. This allows applications that require stable identities and ordered deployment to function correctly in a Kubernetes cluster.
+
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: my-statefulset
+spec:
+  serviceName: "my-service"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+        - name: my-container
+          image: my-image
+          volumeMounts:
+            - name: my-volume
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: my-volume-claim
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 10Gi
+```
+
+### Services types
+
+> To learn more about Service types, you can refer to the official Kubernetes documentation: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+
+- **ClusterIP**: The default Service type, which exposes the Service on a cluster-internal IP. This means that the Service is only accessible from within the cluster.
+- **NodePort**: Exposes the Service on each Node's IP at a static port. This allows the Service to be accessed from outside the cluster using `<NodeIP>:<NodePort>`.
+- **LoadBalancer**: Exposes the Service using a cloud provider's load balancer. This allows the Service to be accessed from outside the cluster using the load balancer's IP address or DNS name.
+
+Other Service types:
+
+- **ExternalName**: Maps the Service to the contents of the `externalName` field (e.g., `foo.bar.example.com`), by returning a CNAME record with its value. This allows the Service to be accessed using the specified external name.
+- **Headless Service**: A Service without a cluster IP, which allows you to directly access the Pods backing the Service. This is useful for applications that require direct access to the Pods, such as databases or stateful applications.
+
+Notes:
+
+- You can handle multiple ports in a Service by defining multiple ports in the Service specification. Each port can have a different name, protocol, and target port, allowing you to expose multiple services or applications through a single Service resource.
+- Headless Services are useful for applications that require direct access to the Pods, such as databases or stateful applications. They allow you to access the individual Pods directly, rather than through a load balancer or proxy, which can be beneficial for certain types of applications that require low latency or direct communication between Pods.
 
 ## Our K8s Components Overview
 
